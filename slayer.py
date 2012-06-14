@@ -205,13 +205,12 @@ def make_parser(start, grammar):
     # all kernel items by non-terminal after reading n chars
 
 
-    reductions = [{}]
+    reductions = [set()]
 
     predicted = rules.predict(start)
     final = parseitem(0, start)
-    kernels =[{}]
-    for p in predict:
-        kernels[0][p] = []
+    
+    kernels =[{start:[]}]
 
     inbox = collections.deque(parseitem(0, rule) for rule in predicted)
 
@@ -258,7 +257,7 @@ class Parser(object):
             self.transients = collections.deque()
 
             self.kernels.append({})
-            self.reductions.append({})
+            self.reductions.append(set())
 
             while self.inbox:
                 item= self.inbox.pop()
@@ -270,14 +269,19 @@ class Parser(object):
 
 
     def add_kernel(self, name, rule, start, pos):
-        if name not in self.kernels[-1]: 
-            self.kernels[-1][name] = [parseitem(start, rule)]
+        if name not in self.kernels[pos]:
+            self.kernels[pos][name] = []
             for r in self.rules.predict(name):
                 self.inbox.append(parseitem(pos, r))
+        print 'addin',self.kernels
+        self.kernels[pos][name].append(parseitem(start, rule))
+        print 'addin',self.kernels
 
     def reduce(self, name, start, pos):
-        if (name,start) not in self.reductions[-1]:
-            self.reductions[-1][(name,start)] = pos
+        item = parseitem(start, name)
+        if item not in self.reductions[pos]:
+            self.reductions[pos].add(item) 
+            print 'reducing'
             for item in self.kernels[start][name]:
                 self.inbox.append(item)
 
@@ -315,7 +319,7 @@ class Predict(Rule):
         return "%s %s"%(self.name,self.next)
 
     def __hash__(self):
-        return hash(self.string)*hash(self.next)
+        return hash(self.name)*hash(self.next)
 
 class Reduce(Rule):
     def __init__(self, name, p):
@@ -326,7 +330,7 @@ class Reduce(Rule):
         return "-> %s[%d] "%(self.name,self.p)
 
     def __hash__(self):
-        return hash(self.string)*hash(self.next)*p
+        return hash(self.name)*hash(self.next)*p
 
     def process(self, parser, item, pos):
         parser.reduce(self.name, item.start, pos)
@@ -363,6 +367,7 @@ class Disjunction(Rule):
 g = Grammar()
 
 g.A = (g.A + "a") 
+g.A = ("a" + g.A) 
 g.A = "a"
 
 print "predict", g._rules.predict("A")
@@ -389,3 +394,4 @@ print
 print 'fed a',p
 
 
+print 'recognized', p.parsed()
