@@ -354,5 +354,9 @@ g.A = (g.A + "a") | "a"
 
 p = g.A.parser()
 
+p.feed("a")
+
+print p
+ 
 
 
