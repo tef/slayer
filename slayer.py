@@ -210,6 +210,8 @@ def make_parser(start, grammar):
     predicted = rules.predict(start)
     final = parseitem(0, start)
     kernels =[{}]
+    for p in predict:
+        kernels[0][p] = []
 
     inbox = collections.deque(parseitem(0, rule) for rule in predicted)
 
@@ -279,7 +281,7 @@ class Parser(object):
             for item in self.kernels[start][name]:
                 self.inbox.append(item)
 
-    def scan(self, rule, start):
+    def scan(self, rule, start, pos):
         self.transients.append(parseitem(start, rule))
 
 class Scanner(Rule):
@@ -298,7 +300,7 @@ class Scanner(Rule):
         return hash(self.string)*hash(self.next)
 
     def process(self, parser, item, pos):
-        return parser.scan(self, item.start)
+        return parser.scan(self, item.start, pos)
 
 
 class Predict(Rule):
