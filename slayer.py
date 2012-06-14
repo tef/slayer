@@ -273,9 +273,7 @@ class Parser(object):
             self.kernels[pos][name] = []
             for r in self.rules.predict(name):
                 self.inbox.append(parseitem(pos, r))
-        print 'addin',self.kernels
         self.kernels[pos][name].append(parseitem(start, rule))
-        print 'addin',self.kernels
 
     def reduce(self, name, start, pos):
         item = parseitem(start, name)
@@ -368,7 +366,8 @@ g = Grammar()
 
 g.A = (g.A + "a") 
 g.A = ("a" + g.A) 
-g.A = "a"
+g.A = "a" | g.B
+g.B = "b"
 
 print "predict", g._rules.predict("A")
 
@@ -395,3 +394,9 @@ print 'fed a',p
 
 
 print 'recognized', p.parsed()
+
+
+p = g.A.parser()
+p.feed("aba")
+
+print p
