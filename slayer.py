@@ -252,7 +252,8 @@ class Parser(object):
 
             for item in self.transients:
                 next_rule = item.rule.advance(char)
-                self.inbox.append(parseitem(item.start, next_rule ))
+                if next_rule:
+                    self.inbox.append(parseitem(item.start, next_rule ))
                     
             self.transients = collections.deque()
 
