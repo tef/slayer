@@ -363,6 +363,38 @@ class Disjunction(Rule):
     def __repr__(self):
         return  str(self.rules)
 
+# todo -- 
+# tests,profiling.
+    # copy main into unittest
+
+# precedence
+#   support grammar constraint being start token, add precedence to parseritem
+
+# parse trees/constructors
+#   build sexps?
+
+#   
+# kleen/nullary Rules/GrammarOperators
+# ordered choice?
+#   linked list of inboxes/transients
+# binary parsers?
+#   i.edata dependent parsers?
+#    conjunction, run them together, but capture the itemsets in another disjunction
+#   negation.
+# named captures
+# dependent rules (bencoding!)
+
+# optimizations
+# transitory rules.
+# in completor, look for transitory rules, create and inherit them
+# i.e a reduce that has two starts, the previous item and the first
+# the completor adds a new transitor, coping over the first offset
+#   disambiguation/longest match etc cf.vizzer
+
+# memoizing prediction
+# memoizing reduction chains, where deterministic
+# housekeeping - early evaluation
+
 g = Grammar()
 
 g.A = (g.A + "a") 
