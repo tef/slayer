@@ -88,6 +88,7 @@ class GrammarConstraint(GrammarNonTerminal):
     def compile(self, next):
         return Precedence(self.rule, self.operator, self.precedence, next)
 
+
 class GrammarRule(GrammarNonTerminal):
     def __init__(self, grammar, name):
         self.grammar = grammar
@@ -97,22 +98,31 @@ class GrammarRule(GrammarNonTerminal):
         return self.name
 
     def __lt__(self, other):
-        return GrammarConstraint(self,operator.lt, other)
+        lt = lambda p: p < other
+        return GrammarConstraint(self,('<%d'%other), lt)
 
     def __le__(self, other):
-        return GrammarConstraint(self,operator.le, other)
+        le = lambda p: p <= other
+        return GrammarConstraint(self,('<=%d'%other), le)
+
 
     def __gt__(self, other):
-        return GrammarConstraint(self, operator.gt, other)
+        gt = lambda p: p > other
+        return GrammarConstraint(self,('>%d'%other), gt)
 
     def __ge__(self, other):
-        return GrammarConstraint(self, operator.ge, other)
+        ge = lambda p: p >= other
+        return GrammarConstraint(self,('>=%d'%other), ge)
 
-    def __eq__(self, other):
-        return GrammarConstraint(self, operator.eq, other)
 
     def __ne__(self, other):
-        return GrammarConstraint(self,operator.ne, other)
+        ne = lambda p: p != other
+        return GrammarConstraint(self,('!=%d'%other), ne)
+
+    def __eq__(self, other):
+        eq = lambda p: p == other
+        return GrammarConstraint(self,('==%d'%other), eq)
+
 
     def __setitem__(self, index, val):
         self.grammar._rules.add(self.name,index,val)
@@ -124,14 +134,15 @@ class GrammarRule(GrammarNonTerminal):
         return make_parser(self.name, self.grammar)
 
 class Grammar(object):
-    def __init__(self):
+    def __init__(self, precedence=0):
         self._rules = ParseRules()
+        self._prec = precedence
 
     def __setattr__(self,name,val):
         if name.startswith('_'):
             self.__dict__[name] = val
         else:
-            self._rules.add(name,0, val)
+            self._rules.add(name,self._prec, val)
 
     def __getattr__(self, name):
         if name.startswith('_'):
@@ -151,20 +162,20 @@ class ParseRules(object):
         self.rules.append((name,p,lift(val).compile(Reduce(name,p))))
 
     def __repr__(self):
-        return "\n".join("%s -> %s"%(name, val) for name, p,val in self.rules)
+        return ",".join("(%s->%s)"%(name, val) for name, p,val in self.rules)
 
     def predict(self, name, precedence=None):
         non_terminals = set()
 
         """ todo do all left corner shit """
         if precedence is None:
-            return [rule for n,p,rule in self.rules if n == name]
+            return [(p,rule) for n,p,rule in self.rules if n == name]
         else:
-            return [rule for n,p,rule in self.rules if n == name and precedence(p)]
+            return [(p,rule) for n,p,rule in self.rules if n == name and precedence(p)]
 
-parseitem = collections.namedtuple('parseitem','start rule')
+parseitem = collections.namedtuple('parseitem','start rule precedence')
 
-def make_parser(start, grammar):
+def make_parser(start, grammar, precedence=None):
 
     """An earley recognizer loosely based on the Aretz Model,
        and the driver loop found in the aycock/horspool earley
@@ -206,15 +217,14 @@ def make_parser(start, grammar):
 
     reductions = [set()]
 
-    predicted = rules.predict(start)
-    final = parseitem(0, start)
+    predicted = rules.predict(start, precedence)
+    final = parseitem(0, start, precedence)
     
     kernels =[{start:[]}]
 
-    inbox = collections.deque(parseitem(0, rule) for rule in predicted)
+    inbox = collections.deque(parseitem(0, rule,p) for p,rule in predicted)
 
     transients = collections.deque()
-
 
     parser = Parser(final, rules, inbox, reductions, kernels, transients, pos=0)
     
@@ -251,7 +261,7 @@ class Parser(object):
             for item in self.transients:
                 next_rule = item.rule.advance(char)
                 if next_rule:
-                    self.inbox.append(parseitem(item.start, next_rule ))
+                    self.inbox.append(parseitem(item.start, next_rule, item.precedence))
                     
             self.transients = collections.deque()
 
@@ -264,25 +274,29 @@ class Parser(object):
 
 
     def parsed(self):
-        return self.final in self.reductions[-1]
+        for final in self.reductions[-1]:
+            if final.start == 0 and final.rule == self.final.rule:
+                if not self.final.precedence or self.final.precedence(final.precedence):
+                    return True
 
 
-    def add_kernel(self, name, rule, start, pos):
+    def add_kernel(self, name, rule, start, pos, precedence=None):
         if name not in self.kernels[pos]:
             self.kernels[pos][name] = []
-            for r in self.rules.predict(name):
-                self.inbox.append(parseitem(pos, r))
-        self.kernels[pos][name].append(parseitem(start, rule))
+            for p,r in self.rules.predict(name, precedence):
+                self.inbox.append(parseitem(pos, r, p))
+        self.kernels[pos][name].append(parseitem(start, rule, precedence))
 
-    def reduce(self, name, start, pos):
-        item = parseitem(start, name)
+    def reduce(self, name, start, pos, precedence):
+        item = parseitem(start, name, precedence)
         if item not in self.reductions[pos]:
             self.reductions[pos].add(item) 
             for item in self.kernels[start][name]:
-                self.inbox.append(item)
+                if not item.precedence or item.precedence(precedence):
+                    self.inbox.append(item)
 
     def scan(self, rule, start, pos):
-        self.transients.append(parseitem(start, rule))
+        self.transients.append(parseitem(start, rule, None))
 
 class Scanner(Rule):
     def __init__(self, string, next):
@@ -329,7 +343,7 @@ class Reduce(Rule):
         return hash(self.name)*hash(self.next)*p
 
     def process(self, parser, item, pos):
-        parser.reduce(self.name, item.start, pos)
+        parser.reduce(self.name, item.start, pos, self.p)
 
 class Precedence(object):
     def __init__(self, name, operator, precedence, next):
@@ -339,9 +353,12 @@ class Precedence(object):
         self.precedence = precedence
 
     def __repr__(self):
-        return "%s%s%d %s"%(self.name,self.operator.__name__,self.precedence, self.next)
+        return "%s%s %s"%(self.name,self.operator, self.next)
     def __hash__(self):
         return hash((self.name, self.rules))
+
+    def process(self, parser, item, pos):
+        parser.add_kernel(self.name,  self.next, item.start, pos, self.precedence)
 
 class Disjunction(Rule):
     def __init__(self, rules):
