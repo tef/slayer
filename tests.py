@@ -3,7 +3,7 @@ import slayer
 
 
 
-class EncodingTest(unittest2.TestCase):
+class GrammarTest(unittest2.TestCase):
     def testCase(self):
         g = slayer.Grammar()
 
