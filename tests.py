@@ -34,17 +34,25 @@ class ExprTest(unittest2.TestCase):
     def testCase(self):
         g = slayer.Grammar()
 
-        g.add[20] = (g.expr < 20) + "+" + (g.expr <= 20)
-        g.sub[20] = (g.expr < 20) + "-" + (g.expr <= 20)
-        g.mul[10] = (g.expr <= 10) + "*" + (g.expr < 10)
-        g.div[10] = (g.expr <= 10) + "/" + (g.expr < 10)
+        g.add = (g.expr < 20) + "+" + (g.expr <= 20)
+        g.sub = (g.expr < 20) + "-" + (g.expr <= 20)
+        g.mul = (g.expr <= 10) + "*" + (g.expr < 10)
+        g.div = (g.expr <= 10) + "/" + (g.expr < 10)
 
-        g.subexpr[0] = "(" + (g.expr <= 100) + ")"
+        def op_build(a,b,c): 
+            return (b, a,c)
 
-        g.expr[0] = g.subexpr | g.number | g.add | g.sub | g.mul | g.div
+        g.subexpr = "(" + (g.expr <= 100) + ")"
+        def sub_build(a,b,c): 
+            return b
 
-        g.number[0] = slayer.lift("0") | "1" | "2" | "3" | "4" | "5" | "6" | "7" | "8" | "9"
-        
+        g.number = slayer.lift("0") | "1" | "2" | "3" | "4" | "5" | "6" | "7" | "8" | "9"
+
+        g.expr[0] = g.subexpr | g.number 
+        g.expr[20] = g.add | g.sub 
+        g.expr[10] = g.mul | g.div
+
+
         p = g.expr.parser()
         print p
         p.feed("1*2+3*4")
